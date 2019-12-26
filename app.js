@@ -1,8 +1,9 @@
-const WXAPI = require('wxapi/main')
+const WXAPI = require('apifm-wxapi')
 const CONFIG = require('config.js')
+const AUTH = require('utils/auth')
 App({
-  navigateToLogin: false,
   onLaunch: function() {
+    WXAPI.init(CONFIG.subDomain) // 从根目录的 config.js 文件中读取
     const that = this;
     // 检测新版本
     const updateManager = wx.getUpdateManager()
@@ -60,7 +61,7 @@ App({
       that.globalData.vipLevel = res.data
     })
     //  获取商城名称
-    WXAPI.queryConfigBatch('mallName,recharge_amount_min,ALLOW_SELF_COLLECTION,RECHARGE_OPEN').then(function(res) {
+    WXAPI.queryConfigBatch('mallName,recharge_amount_min,WITHDRAW_MIN,ALLOW_SELF_COLLECTION,RECHARGE_OPEN').then(function(res) {
       if (res.code == 0) {
         res.data.forEach(config => {
           wx.setStorageSync(config.key, config.value);
@@ -78,18 +79,6 @@ App({
         that.globalData.order_reputation_score = res.data[0].score;
       }
     })
-  },
-  goLoginPageTimeOut: function() {
-    if (this.navigateToLogin){
-      return
-    }
-    wx.removeStorageSync('token')
-    this.navigateToLogin = true
-    setTimeout(function() {
-      wx.navigateTo({
-        url: "/pages/authorize/index"
-      })
-    }, 1000)
   },
   goStartIndexPage: function() {
     setTimeout(function() {
@@ -123,7 +112,12 @@ App({
         })
       }
     }
-    this.navigateToLogin = false
+    // 自动登录
+    AUTH.checkHasLogined().then(isLogined => {
+      if (!isLogined) {
+        AUTH.login()
+      }
+    })
   },
   globalData: {                
     isConnected: true,

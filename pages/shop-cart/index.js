@@ -1,5 +1,8 @@
-const WXAPI = require('../../wxapi/main')
+const WXAPI = require('apifm-wxapi')
+const TOOLS = require('../../utils/tools.js')
+
 const app = getApp()
+
 Page({
   data: {
     goodsList: {
@@ -178,7 +181,11 @@ Page({
     shopCarInfo.shopNum = tempNumber;
     wx.setStorage({
       key: "shopCarInfo",
-      data: shopCarInfo
+      data: shopCarInfo,
+      success: function (res) {
+        // 获取购物车数据，显示TabBarBadge
+        TOOLS.showTabBarBadge();
+      }
     })
   },
   bindAllSelect: function() {
@@ -332,10 +339,7 @@ Page({
           }
         })
       } else {
-        WXAPI.goodsPrice({
-          goodsId: carShopBean.goodsId,
-          propertyChildIds: carShopBean.propertyChildIds
-        }).then(function(res) {
+        WXAPI.goodsPrice(carShopBean.goodsId, carShopBean.propertyChildIds).then(function(res) {
           doneNumber++;
           if (res.data.stores < carShopBean.number) {
             wx.showModal({

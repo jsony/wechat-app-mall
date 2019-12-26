@@ -3,7 +3,6 @@
     "pages/start/start",
     "pages/index/index",
     "pages/goods-details/index",
-    "pages/goods-details/poster",
     "pages/shop-cart/index",
     "pages/to-pay-order/index",
     "pages/select-address/index",
@@ -17,8 +16,6 @@
     "pages/recharge/index",
     "pages/withdraw/index",
     "pages/kanjia/index",
-    "pages/authorize/index",
-    "pages/authorize/bindmobile",
     "pages/score-excharge/index",
     "pages/asset/index",
     "pages/score/index",
@@ -52,6 +49,12 @@
         "iconPath": "images/nav/home-off.png",
         "selectedIconPath": "images/nav/home-on.png",
         "text": "首页"
+      },
+      {
+        "pagePath": "pages/category/category",
+        "iconPath": "images/nav/ic_catefory_normal.png",
+        "selectedIconPath": "images/nav/ic_catefory_pressed.png",
+        "text": "分类"
       },
       {
         "pagePath": "pages/shop-cart/index",

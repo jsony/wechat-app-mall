@@ -1,5 +1,7 @@
-const WXAPI = require('../../wxapi/main')
+const WXAPI = require('apifm-wxapi')
 const CONFIG = require('../../config.js')
+const TOOLS = require('../../utils/tools.js')
+
 //获取应用实例
 var app = getApp()
 Page({
@@ -10,15 +12,8 @@ Page({
     goodsRecommend: [], // 推荐商品
     kanjiaList: [], //砍价商品列表
     pingtuanList: [], //拼团商品列表
-    kanjiaGoodsMap: {}, //砍价商品列表
 
-    indicatorDots: true,
-    autoplay: true,
-    interval: 3000,
-    duration: 1000,
     loadingHidden: false, // loading
-    userInfo: {},
-    swiperCurrent: 0,
     selectCurrent: 0,
     categories: [],
     activeCategoryId: 0,
@@ -47,13 +42,6 @@ Page({
       cateScrollTop: offset
     });
     this.getGoodsList(this.data.activeCategoryId);
-  },
-  //事件处理函数
-  swiperchange: function(e) {
-    //console.log(e.detail.current)
-    this.setData({
-      swiperCurrent: e.detail.current
-    })
   },
   toDetailsTap: function(e) {
     wx.navigateTo({
@@ -146,6 +134,10 @@ Page({
     that.getNotice()
     that.kanjiaGoods()
     that.pingtuanGoods()
+  },
+  onShow: function(e){
+    // 获取购物车数据，显示TabBarBadge
+    TOOLS.showTabBarBadge();
   },
   onPageScroll(e) {
     let scrollTop = this.data.scrollTop
@@ -258,17 +250,16 @@ Page({
       inputVal: e.detail.value
     });
   },
-  // 以下为砍价业务
-  kanjiaGoods(){
-    const _this = this
-    WXAPI.kanjiaList().then(function (res) {
-      if (res.code == 0) {
-        _this.setData({
-          kanjiaList: res.data.result,
-          kanjiaGoodsMap: res.data.goodsMap
-        })
-      }
-    })
+  // 获取砍价商品
+  async kanjiaGoods(){
+    const res = await WXAPI.goods({
+      kanjia: true
+    });
+    if (res.code == 0) {
+      this.setData({
+        kanjiaList: res.data
+      })
+    }
   },
   goCoupons: function (e) {
     wx.navigateTo({

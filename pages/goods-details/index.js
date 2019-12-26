@@ -1,6 +1,7 @@
-const WXAPI = require('../../wxapi/main')
+const WXAPI = require('apifm-wxapi')
 const app = getApp();
 const WxParse = require('../../wxParse/wxParse.js');
+import ApifmShare from '../../template/share/index.js';
 const CONFIG = require('../../config.js')
 const AUTH = require('../../utils/auth')
 const SelectSizePrefix = "选择："
@@ -9,11 +10,9 @@ let videoAd = null; // 视频激励广告
 
 Page({
   data: {
-    autoplay: true,
-    interval: 3000,
-    duration: 1000,
+    wxlogin: true,
+
     goodsDetail: {},
-    swiperCurrent: 0,
     hasMoreSelect: false,
     selectSize: SelectSizePrefix,
     selectSizePrice: 0,
@@ -29,19 +28,9 @@ Page({
     canSubmit: false, //  选中规格尺寸时候是否允许加入购物车
     shopCarInfo: {},
     shopType: "addShopCar", //购物类型，加入购物车或立即购买，默认为加入购物车
-    currentPages: undefined,
-
-    openShare: false
-  },
-
-  //事件处理函数
-  swiperchange: function(e) {
-    //console.log(e.detail.current)
-    this.setData({
-      swiperCurrent: e.detail.current
-    })
   },
   async onLoad(e) {
+    ApifmShare.init(this)
     if (e && e.scene) {
       const scene = decodeURIComponent(e.scene) // 处理扫码进商品详情页面的逻辑
       if (scene) {
@@ -64,25 +53,30 @@ Page({
       }
     })
     this.reputation(e.id);
-    // 视频激励广告信息
-    if (wx.createRewardedVideoAd) {
-      videoAd = wx.createRewardedVideoAd({
-        adUnitId: 'adunit-12c4520ad7c062eb'
-      })
-      videoAd.onLoad(() => { console.log('-----------onLoad') })
-      videoAd.onError((err) => { })
-      videoAd.onClose((res) => { 
-        if (res && res.isEnded) {
-          that.helpKanjiaDone();
-        } else {
-          wx.showModal({
-            title: '提示',
-            content: '完整观看完视频才能砍价',
-            showCancel: false
-          })
-        }
-      })
-    }
+    this.initAd();
+  },
+  initAd(){
+    setTimeout(()=>{
+      // 视频激励广告信息
+      if (wx.createRewardedVideoAd) {
+        videoAd = wx.createRewardedVideoAd({
+          adUnitId: 'adunit-12c4520ad7c062eb'
+        })
+        videoAd.onLoad(() => { })
+        videoAd.onError((err) => { })
+        videoAd.onClose((res) => {
+          if (res && res.isEnded) {
+            that.helpKanjiaDone();
+          } else {
+            wx.showModal({
+              title: '提示',
+              content: '完整观看完视频才能砍价',
+              showCancel: false
+            })
+          }
+        })
+      }
+    }, 500)
   },
   onShow (){
     this.getGoodsDetailAndKanjieInfo(this.data.goodsId)
@@ -116,8 +110,7 @@ Page({
         selectSizePrice: goodsDetailRes.data.basicInfo.minPrice,
         totalScoreToPay: goodsDetailRes.data.basicInfo.minScore,
         buyNumMax: goodsDetailRes.data.basicInfo.stores,
-        buyNumber: (goodsDetailRes.data.basicInfo.stores > 0) ? 1 : 0,
-        currentPages: getCurrentPages()
+        buyNumber: (goodsDetailRes.data.basicInfo.stores > 0) ? 1 : 0
       }
       if (goodsKanjiaSetRes.code == 0) {
         _data.curGoodsKanjia = goodsKanjiaSetRes.data
@@ -127,7 +120,7 @@ Page({
           that.data.kjJoinUid = wx.getStorageSync('uid')
         }
         const curKanjiaprogress = await WXAPI.kanjiaDetail(goodsKanjiaSetRes.data.id, that.data.kjJoinUid)
-        const myHelpDetail = await WXAPI.kanjiaHelpDetail(goodsKanjiaSetRes.data.id, that.data.kjJoinUid, wx.getStorageSync('token'))
+        const myHelpDetail = await WXAPI.kanjiaHelpDetail(wx.getStorageSync('token'), goodsKanjiaSetRes.data.id, that.data.kjJoinUid)
         if (curKanjiaprogress.code == 0) {
           _data.curKanjiaprogress = curKanjiaprogress.data
         }
@@ -250,10 +243,7 @@ Page({
     }
     // 计算当前价格
     if (canSubmit) {
-      WXAPI.goodsPrice({
-        goodsId: that.data.goodsDetail.basicInfo.id,
-        propertyChildIds: propertyChildIds
-      }).then(function(res) {
+      WXAPI.goodsPrice(that.data.goodsDetail.basicInfo.id, propertyChildIds).then(function(res) {
         let _price = res.data.price
         if (that.data.shopType == 'toPingtuan') {
           _price = res.data.pingtuanPrice
@@ -366,20 +356,10 @@ Page({
           url: "/pages/to-pay-order/index?orderType=buyNow&pingtuanOpenId=" + this.data.pingtuanopenid
         })
       } else {
-        WXAPI.pingtuanOpen(that.data.goodsDetail.basicInfo.id, wx.getStorageSync('token')).then(function(res) {
+        WXAPI.pingtuanOpen(wx.getStorageSync('token'), that.data.goodsDetail.basicInfo.id).then(function(res) {
           if (res.code == 2000) {
-            wx.showModal({
-              title: '提示',
-              content: '本次操作需要您的登录授权',
-              cancelText: '暂不登录',
-              confirmText: '前往登录',
-              success(res) {
-                if (res.confirm) {
-                  wx.switchTab({
-                    url: "/pages/my/index"
-                  })
-                }
-              }
+            that.setData({
+              wxlogin: false
             })
             return
           }
@@ -531,10 +511,13 @@ Page({
   },
   pingtuanList: function(goodsId) {
     var that = this;
-    WXAPI.pingtuanList(goodsId).then(function(res) {
+    WXAPI.pingtuanList({
+      goodsId: goodsId,
+      status: 0
+    }).then(function(res) {
       if (res.code == 0) {
         that.setData({
-          pingtuanList: res.data
+          pingtuanList: res.data.result
         });
       }
     })
@@ -554,18 +537,8 @@ Page({
       if (isLogined) {
         this.doneJoinKanjia();
       } else {
-        wx.showModal({
-          title: '提示',
-          content: '本次操作需要您的登录授权',
-          cancelText: '暂不登录',
-          confirmText: '前往登录',
-          success(res) {
-            if (res.confirm) {
-              wx.switchTab({
-                url: "/pages/my/index"
-              })
-            }
-          }
+        this.setData({
+          wxlogin: false
         })
       }
     })
@@ -579,7 +552,7 @@ Page({
       title: '加载中',
       mask: true
     })
-    WXAPI.kanjiaJoin(_this.data.curGoodsKanjia.id, wx.getStorageSync('token')).then(function(res) {
+    WXAPI.kanjiaJoin(wx.getStorageSync('token'), _this.data.curGoodsKanjia.id).then(function(res) {
       wx.hideLoading()
       if (res.code == 0) {
         _this.data.kjJoinUid = wx.getStorageSync('uid')
@@ -606,6 +579,9 @@ Page({
   helpKanjia() {
     const _this = this;
     AUTH.checkHasLogined().then(isLogined => {
+      _this.setData({
+        wxlogin: isLogined
+      })
       if (isLogined) {
         if (CONFIG.kanjiaRequirePlayAd) {
           // 显示激励视频广告
@@ -623,14 +599,12 @@ Page({
         } else {
           _this.helpKanjiaDone()
         }
-      } else {
-        app.goLoginPageTimeOut()
       }
     })
   },
   helpKanjiaDone(){
     const _this = this;
-    WXAPI.kanjiaHelp(_this.data.kjId, _this.data.kjJoinUid, wx.getStorageSync('token'), '').then(function (res) {
+    WXAPI.kanjiaHelp(wx.getStorageSync('token'), _this.data.kjId, _this.data.kjJoinUid, '').then(function (res) {
       if (res.code != 0) {
         wx.showToast({
           title: res.msg,
@@ -649,19 +623,19 @@ Page({
       _this.getGoodsDetailAndKanjieInfo(_this.data.goodsDetail.basicInfo.id)
     })
   },
-  openShareDiv () {
+  cancelLogin() {
     this.setData({
-      openShare: true
+      wxlogin: true
     })
   },
-  closeShareDiv() {
-    this.setData({
-      openShare: false
-    })
+  processLogin(e) {
+    if (!e.detail.userInfo) {
+      wx.showToast({
+        title: '已取消',
+        icon: 'none',
+      })
+      return;
+    }
+    AUTH.register(this);
   },
-  toPoster: function (e) { // 千万生成海报界面
-    wx.navigateTo({
-      url: "/pages/goods-details/poster?goodsid=" + e.currentTarget.dataset.goodsid
-    })
-  }
 })
